@@ -28,6 +28,36 @@ let isSoundEnabled = true;
 const flipAudio = new Audio('sounds/page-flip.mp3');
 flipAudio.volume = 0.5;
 
+// Khai báo các vùng phát audio cho từng trang (x, y, width, height tính theo %)
+const hotspotsConfig = {
+  5: [ // Trang 5
+    { audioUrl: 'sounds/U1P5.MP3', x: 10, y: 20, width: 30, height: 10 }
+  ],
+};
+
+let currentAudio = null;
+let currentAreaEl = null;
+
+// Hàm phát audio
+function playAudio(audioUrl, element) {
+  if (currentAudio) {
+    currentAudio.pause();
+    if (currentAreaEl) currentAreaEl.classList.remove('playing');
+  }
+
+  if (currentAreaEl === element && !currentAudio.paused) return;
+
+  currentAudio = new Audio(audioUrl);
+  currentAreaEl = element;
+  element.classList.add('playing');
+  currentAudio.play();
+
+  currentAudio.onended = () => {
+    element.classList.remove('playing');
+  };
+}
+
+
 // CLICK TRIGGER UPLOAD (Mở hộp chọn file mượt mà)
 if (btnUploadTrigger) {
   btnUploadTrigger.addEventListener('click', (e) => {
@@ -168,6 +198,7 @@ function buildFlipbookDOM() {
   bookData.pages.forEach((page) => {
     const pageDiv = document.createElement('div');
     pageDiv.className = 'page';
+    pageDiv.style.position = 'relative';
 
     const img = document.createElement('img');
     img.dataset.src = page.imageUrl;
@@ -175,6 +206,28 @@ function buildFlipbookDOM() {
     img.classList.add('img-loading');
 
     pageDiv.appendChild(img);
+
+
+    const spots = hotspotsConfig[page.pageNumber];
+    if (spots) {
+      spots.forEach((spot) => {
+        const area = document.createElement('div');
+        area.className = 'audio-area';
+        area.style.left = spot.x + '%';
+        area.style.top = spot.y + '%';
+        area.style.width = spot.width + '%';
+        area.style.height = spot.height + '%';
+
+        area.onclick = (e) => {
+          e.stopPropagation(); // Không cho lật trang khi click ô audio
+          playAudio(spot.audioUrl, area);
+        };
+        pageDiv.appendChild(area);
+      });
+    }
+
+
+
     newFlipbookEl.appendChild(pageDiv);
   });
 

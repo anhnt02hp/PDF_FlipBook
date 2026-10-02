@@ -36,3 +36,21 @@
   opacity: 0;
   transition: opacity 0.3s ease;
 }
+
+/* Styling cho ô tương tác */
+.audio-area {
+  position: absolute;
+  cursor: pointer;
+  background-color: rgba(255, 0, 0, 1); /* Màu xanh mờ nhẹ */
+  border: 1px dashed rgba(52, 152, 219, 0.6);
+  z-index: 10;
+  transition: background 0.2s;
+}
+
+.audio-area:hover {
+  background-color: rgba(52, 152, 219, 0.4);
+}
+
+.audio-area.playing {
+  background-color: rgba(46, 204, 113, 0.4); /* Đổi màu xanh lá khi phát */
+}
