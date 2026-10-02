@@ -1,0 +1,38 @@
+/* Khung chứa tổng */
+#book-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 700px;
+}
+
+/* Ép thẻ flipbook luôn căn giữa */
+#flipbook {
+  margin: 0 auto !important;
+}
+
+/* Định dạng từng trang sách */
+.page {
+  background-color: #ffffff;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.page img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+}
+
+/* Xử lý hiệu ứng load ảnh */
+.img-loading {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}

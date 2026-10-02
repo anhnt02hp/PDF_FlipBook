@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fullstack PDF Flipbook Engine Pro</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Thư viện StPageFlip -->
+  <script src="https://cdn.jsdelivr.net/npm/page-flip/dist/js/page-flip.browser.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans overflow-x-hidden">
+
+  <header class="bg-slate-800 border-b border-slate-700 px-4 py-3 sticky top-0 z-50 shadow-md">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- LOGO & UPLOAD -->
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-book-journal-whills text-indigo-400 text-2xl"></i>
+        <h1 class="font-bold text-lg hidden md:block">Flipbook Engine Pro</h1>
+        
+        <button id="btn-upload-trigger" type="button" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow">
+          <i class="fa-solid fa-upload"></i>
+          <span>Tải PDF lên Server</span>
+        </button>
+        <input type="file" id="pdf-input" accept="application/pdf" class="hidden" />
+      </div>
+
+      <!-- THANH ĐIỀU KHIỂN NÂNG CAO -->
+      <div id="controls" class="flex items-center gap-3 bg-slate-900 p-1.5 rounded-xl border border-slate-700 opacity-50 pointer-events-none transition flex-wrap">
+        
+        <!-- Điêu hướng Trang -->
+        <div class="flex items-center gap-1.5">
+          <button id="btn-prev" class="px-2.5 py-1.5 hover:bg-slate-800 rounded-lg text-slate-300 hover:text-white transition">
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
+          
+          <div class="flex items-center gap-1 text-sm">
+            <input type="number" id="page-input" min="1" value="1" class="w-12 bg-slate-800 border border-slate-600 rounded px-1.5 py-1 text-center text-white focus:outline-none focus:border-indigo-500">
+            <span class="text-slate-400">/ <span id="total-pages">0</span></span>
+            <button id="btn-go" class="ml-1 bg-indigo-600 hover:bg-indigo-500 text-xs px-2 py-1 rounded text-white font-medium transition">Nhảy</button>
+          </div>
+
+          <button id="btn-next" class="px-2.5 py-1.5 hover:bg-slate-800 rounded-lg text-slate-300 hover:text-white transition">
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
+
+        <div class="h-5 w-px bg-slate-700 hidden sm:block"></div>
+
+        <!-- Chế độ Lật (1 Trang / 2 Trang) -->
+        <div class="flex bg-slate-800 p-1 rounded-lg border border-slate-700 text-xs font-medium">
+          <button id="btn-mode-single" class="px-2.5 py-1 rounded-md text-slate-400 hover:text-white transition">
+            <i class="fa-regular fa-file"></i> 1 Trang
+          </button>
+          <button id="btn-mode-double" class="px-2.5 py-1 rounded-md bg-indigo-600 text-white shadow transition">
+            <i class="fa-regular fa-copy"></i> 2 Trang
+          </button>
+        </div>
+
+        <!-- Bật/Tắt Âm thanh -->
+        <button id="btn-sound-toggle" title="Bật/Tắt Âm thanh" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-indigo-400 border border-slate-700 transition">
+          <i class="fa-solid fa-volume-high text-sm"></i>
+        </button>
+
+      </div>
+
+    </div>
+  </header>
+
+  <main class="flex-1 flex items-center justify-center p-4 relative min-h-[calc(100vh-65px)]">
+    <div id="upload-box" class="border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-2xl p-10 text-center max-w-md w-full bg-slate-800/40 backdrop-blur transition cursor-pointer">
+      <i class="fa-solid fa-file-pdf text-6xl text-indigo-400 mb-4"></i>
+      <h2 class="text-xl font-semibold mb-2">Tải file PDF lên Server</h2>
+      <p class="text-slate-400 text-sm mb-4">Trải nghiệm đọc sách lật 3D với âm thanh chân thật.</p>
+    </div>
+
+    <div id="loading" class="hidden flex flex-col items-center justify-center p-8">
+      <!-- Spinner -->
+      <div class="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+      
+      <!-- Text trạng thái -->
+      <p id="loading-status" class="text-slate-300 font-medium mb-2">Đang tải file...</p>
+      
+      <!-- Thanh Progress % -->
+      <div class="w-64 bg-slate-700 h-3 rounded-full overflow-hidden mb-1">
+        <div id="progress-bar" class="bg-indigo-500 h-full w-0 transition-all duration-200"></div>
+      </div>
+      <span id="progress-text" class="text-xs text-slate-400 font-mono">0%</span>
+    </div>
+
+    <div id="book-container" class="hidden relative shadow-2xl my-auto">
+      <div id="flipbook"></div>
+    </div>
+  </main>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
