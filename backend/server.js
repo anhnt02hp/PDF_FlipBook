@@ -12,11 +12,8 @@ const PORT = 5000;
 app.use(cors());
 app.use(express.json());
 
-// Thư mục lưu trữ
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const PROCESSED_DIR = path.join(__dirname, 'processed');
-
-// Đường dẫn trỏ trực tiếp tới Poppler bin (nếu có trong dự án)
 const LOCAL_POPPLER_BIN = path.join(__dirname, '..', 'poppler', 'Library', 'bin');
 
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -25,10 +22,94 @@ if (!fs.existsSync(PROCESSED_DIR)) fs.mkdirSync(PROCESSED_DIR, { recursive: true
 // Static server phục vụ ảnh đã cắt
 app.use('/processed', express.static(PROCESSED_DIR));
 
-// Cấu hình Multer upload file tạm
 const upload = multer({ dest: UPLOADS_DIR });
 
-// API UPLOAD & CHUYỂN ĐỔI PDF
+// 1. API: LẤY DANH SÁCH TẤT CẢ CUỐN SÁCH ĐÃ CÓ TRONG PROCESSED
+app.get('/api/books', (req, res) => {
+  try {
+    const folders = fs.readdirSync(PROCESSED_DIR, { withFileTypes: true })
+      .filter(dirent => dirent.isDirectory())
+      .map(dirent => dirent.name);
+
+    const books = [];
+
+    folders.forEach(folderId => {
+      const folderPath = path.join(PROCESSED_DIR, folderId);
+      const metaPath = path.join(folderPath, 'meta.json');
+      
+      const files = fs.readdirSync(folderPath)
+        .filter(f => f.startsWith('page-') && f.endsWith('.jpg'))
+        .sort((a, b) => {
+          const numA = parseInt(a.match(/\d+/)[0]);
+          const numB = parseInt(b.match(/\d+/)[0]);
+          return numA - numB;
+        });
+
+      if (files.length > 0) {
+        let meta = {
+          bookId: folderId,
+          bookName: `Sách ${folderId.substring(0, 8)}`,
+          totalPages: files.length,
+          coverUrl: `http://localhost:${PORT}/processed/${folderId}/${files[0]}`
+        };
+
+        if (fs.existsSync(metaPath)) {
+          try {
+            const rawMeta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+            meta = { ...meta, ...rawMeta };
+          } catch (e) {}
+        }
+
+        books.push(meta);
+      }
+    });
+
+    return res.json({ success: true, books });
+  } catch (err) {
+    console.error('Lỗi lấy danh sách sách:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. API: LẤY CHI TIẾT CÁC TRANG CỦA 1 CUỐN SÁCH CỤ THỂ (LOAD NGAY)
+app.get('/api/books/:bookId', (req, res) => {
+  try {
+    const { bookId } = req.params;
+    const outputDir = path.join(PROCESSED_DIR, bookId);
+
+    if (!fs.existsSync(outputDir)) {
+      return res.status(404).json({ success: false, error: 'Không tìm thấy cuốn sách này!' });
+    }
+
+    const files = fs.readdirSync(outputDir)
+      .filter(f => f.startsWith('page-') && f.endsWith('.jpg'))
+      .sort((a, b) => {
+        const numA = parseInt(a.match(/\d+/)[0]);
+        const numB = parseInt(b.match(/\d+/)[0]);
+        return numA - numB;
+      });
+
+    if (files.length === 0) {
+      return res.status(400).json({ success: false, error: 'Cuốn sách chưa có trang nào được render!' });
+    }
+
+    const pages = files.map((file, index) => ({
+      pageNumber: index + 1,
+      imageUrl: `http://localhost:${PORT}/processed/${bookId}/${file}`
+    }));
+
+    return res.json({
+      success: true,
+      fileId: bookId,
+      totalPages: pages.length,
+      pages
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. API: UPLOAD FILE MỚI (NẾU ĐÃ LOAD RỒI THÌ BÁO CACHE HIT)
 app.post('/api/upload', upload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) {
@@ -36,13 +117,14 @@ app.post('/api/upload', upload.single('pdf'), async (req, res) => {
     }
 
     const tempPdfPath = req.file.path;
+    const originalName = req.file.originalname || 'Tài liệu PDF';
 
-    // 1. Tính MD5 Hash nội dung file PDF để tạo ID duy nhất
+    // Tính MD5 Hash theo nội dung file
     const fileBuffer = fs.readFileSync(tempPdfPath);
     const fileHash = crypto.createHash('md5').update(fileBuffer).digest('hex');
     const outputDir = path.join(PROCESSED_DIR, fileHash);
 
-    // 2. KIỂM TRA CACHE: Nếu folder chứa các trang cắt sẵn đã tồn tại
+    // Kiểm tra nếu đã được xử lý từ trước
     if (fs.existsSync(outputDir)) {
       const existingFiles = fs.readdirSync(outputDir)
         .filter(f => f.startsWith('page-') && f.endsWith('.jpg'))
@@ -53,7 +135,6 @@ app.post('/api/upload', upload.single('pdf'), async (req, res) => {
         });
 
       if (existingFiles.length > 0) {
-        // Đã cắt sẵn từ trước => Xóa file upload tạm & Trả kết quả ngay lập tức
         fs.unlinkSync(tempPdfPath);
 
         const pages = existingFiles.map((file, index) => ({
@@ -61,12 +142,11 @@ app.post('/api/upload', upload.single('pdf'), async (req, res) => {
           imageUrl: `http://localhost:${PORT}/processed/${fileHash}/${file}`
         }));
 
-        console.log(`⚡ [CACHE HIT] Dùng lại dữ liệu đã xử lý từ: processed/${fileHash}`);
+        console.log(`⚡ [CACHE HIT] Dùng lại dữ liệu: ${fileHash}`);
 
         return res.json({
           success: true,
           fromCache: true,
-          message: 'Lấy dữ liệu từ cache thành công!',
           fileId: fileHash,
           totalPages: pages.length,
           pages
@@ -74,7 +154,7 @@ app.post('/api/upload', upload.single('pdf'), async (req, res) => {
       }
     }
 
-    // 3. NẾU CHƯA CÓ CACHE => Tiến hành tạo folder & cắt ảnh bằng Poppler
+    // Nếu chưa có -> Tạo mới và cắt ảnh
     fs.mkdirSync(outputDir, { recursive: true });
 
     const options = {
@@ -90,11 +170,8 @@ app.post('/api/upload', upload.single('pdf'), async (req, res) => {
     }
 
     await pdfPoppler.convert(tempPdfPath, options);
-
-    // Xóa file upload tạm trong thư mục /uploads
     fs.unlinkSync(tempPdfPath);
 
-    // Đọc danh sách ảnh vừa cắt
     const files = fs.readdirSync(outputDir)
       .filter(f => f.startsWith('page-') && f.endsWith('.jpg'))
       .sort((a, b) => {
@@ -103,35 +180,34 @@ app.post('/api/upload', upload.single('pdf'), async (req, res) => {
         return numA - numB;
       });
 
-    const totalPages = files.length;
+    // Lưu metadata sách
+    const metaData = {
+      bookId: fileHash,
+      bookName: originalName.replace(/\.[^/.]+$/, ''),
+      totalPages: files.length,
+      createdAt: new Date().toISOString()
+    };
+    fs.writeFileSync(path.join(outputDir, 'meta.json'), JSON.stringify(metaData, null, 2));
+
     const pages = files.map((file, index) => ({
       pageNumber: index + 1,
       imageUrl: `http://localhost:${PORT}/processed/${fileHash}/${file}`
     }));
 
-    console.log(`✨ [NEW CONVERT] Đã chuyển đổi thành công PDF sang: processed/${fileHash}`);
-
     return res.json({
       success: true,
       fromCache: false,
-      message: 'Xử lý PDF thành công!',
       fileId: fileHash,
-      totalPages,
+      totalPages: pages.length,
       pages
     });
 
   } catch (processErr) {
     console.error('Lỗi chuyển đổi PDF:', processErr);
-    
-    // Dọn dẹp file tạm nếu xảy ra lỗi
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
-    
-    return res.status(500).json({ 
-      success: false, 
-      error: 'Đã xảy ra lỗi trong quá trình xử lý file PDF!' 
-    });
+    return res.status(500).json({ success: false, error: 'Lỗi trong quá trình xử lý PDF!' });
   }
 });
 
